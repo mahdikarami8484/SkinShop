@@ -1,0 +1,10 @@
+name: SkinShop
+version: 1.0.0
+main: mahdikarami8484\SkinShop\main
+api: 3.0.0
+author: mahdikarami8484
+
+
+commands:
+   sh:  
+     description: Buy skin as SkinShop
