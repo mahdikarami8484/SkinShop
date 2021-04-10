@@ -1,0 +1,8 @@
+--- # Poggit-CI Manifest. Open the CI at https://poggit.pmmp.io/ci/mahdikarami8484/SkinShop
+build-by-default: true
+branches:
+- master
+projects:
+  SkinShop:
+    path: ""
+...
