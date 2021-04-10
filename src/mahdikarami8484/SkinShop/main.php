@@ -1,17 +1,16 @@
 <?php
 
-// بسم الله ارحمن ارحیم
-
 namespace mahdikarami8484\SkinShop;
 
-use pocketmine\entity\Skin;
-use pocketmine\Player;
-use pocketmine\plugin\PluginBase;
-
-use pocketmine\event\Listener;
-
+use mahdikarami8484\SkinShop\Lib\SimpleForm;
 use pocketmine\command\Command;
 use pocketmine\command\CommandSender;
+
+use pocketmine\entity\Skin;
+use pocketmine\event\player\PlayerChangeSkinEvent;
+use pocketmine\Player;
+use pocketmine\plugin\PluginBase;
+use pocketmine\event\Listener;
 
 use pocketmine\utils\Config;
 use pocketmine\utils\TextFormat;
@@ -20,7 +19,7 @@ use pocketmine\utils\TextFormat as T;
 class main extends PluginBase implements Listener
 {
     /** @var array */
-    public static $skinPaths;
+    public static $skins;
 
     /** @var TextFormat[] */
     public static $colors = [
@@ -41,88 +40,132 @@ class main extends PluginBase implements Listener
     /** @var EconomyAPI */
     public $eco;
 
+    /** @var Skin[]  */
+    private $PlayerSkins;
+
+    /** @var Config */
+    public $db;
+
     public function onEnable()
     {
-        //scins folder
+        $this->getServer()->getPluginManager()->registerEvents($this, $this);
         @mkdir($this->getDataFolder() . "skins");
-        //prices config
-        if (!file_exists($this->getDataFolder() . "prices.yml")) {
-            $cfg = new Config($this->getDataFolder() . "prices.yml");
-            $cfg->set('note', "#write skin price (if skin is skin.png write skin: 20000 if skin price is 20000)");
-            $cfg->save();
-        }
-        $cfg = new Config($this->getDataFolder() . "prices.yml");
-        $i = 0;
+        $this->saveDefaultConfig();
+        $cfg = $this->getConfig();
+        $this->db = new Config($this->getDataFolder() . "db.json");
         foreach (scandir($this->getDataFolder() . "skins") as $skin) {
             if ($skin != "." and $skin != "..") {
-                //gereftan esm skin as folan.png
                 $name = explode(".", $skin)[0];
-                if (!is_null($cfg->get($name))) { //agar meghdar adadi baray felan gozashte bood
-
-                    //[0] return data folder path
-                    //[1] return skin name
-                    self::$skinPaths[$i] = [$this->getDataFolder() . "/skins/" . $skin, $name];
-                    $i++;
+                if (is_numeric($cfg->get($name))) {
+                    self::$skins[] = $name;
                 } else continue;
             }
         }
         $this->eco = $this->getServer()->getPluginManager()->getPlugin('EconomyAPI');
-        $this->getServer()->getPluginManager()->registerEvents($this, $this);
     }
 
-    public function onCommand(CommandSender $player, Command $cmd, string $label, array $args): bool
+    public function onCommand(CommandSender $sender, Command $command, string $label, array $args): bool
     {
-        switch ($cmd->getName()) {
+        switch ($command->getName()) {
             case "sh":
-                if (!$player instanceof player) {
+                if (!$sender instanceof player) {
                     $player->sendMessage("use this cmd in game");
                     return false;
                 }
-                $this->form($player);
-                break;
+                if (isset($args[0]) and $args[0] == 'reset') {
+                    if (isset($this->PlayerSkins[$sender->getName()])) {
+                        $sender->setSkin($this->PlayerSkins[$sender->getName()]);
+                        $sender->sendSkin();
+                        unset($this->PlayerSkins[$sender->getName()]);
+                        $sender->sendMessage("§aThe Skin was reset");
+                    } else {
+                        $sender->sendMessage("§c[!] You cant reset your skin");
+                    }
+                    return true;
+                }
+                $this->form($sender);
         }
-        return true;
+        return parent::onCommand($sender, $command, $label, $args);
     }
 
     public function form(Player $player)
     {
-        $cfg = new Config($this->getDataFolder() . "prices.yml");
+        $cfg = $this->getConfig();
         $api = $this->getServer()->getPluginManager()->getPlugin('FormAPI');
-        $form = $api->createSimpleForm(function (Player $player, $data) use ($cfg) {
+        $form = new SimpleForm(function (Player $player, $data) use ($cfg) {
             if ($data === null) {
                 return true;
             }
-            //money kamtar
-            if ($this->eco->myMoney($player) >= $cfg->get(self::$skinPaths[$data][1])) {
-                $this->eco->reduceMoney($player, $cfg->get(self::$skinPaths[$data][1]));
-                $skinPath = self::$skinPaths[$data][0];
-                $img = @imagecreatefrompng($skinPath);
-                $skinbytes = "";
-                $s = (int)@getimagesize($skinPath)[1];
-                for ($y = 0; $y < $s; $y++) {
-                    for ($x = 0; $x < 64; $x++) {
-                        $colorat = @imagecolorat($img, $x, $y);
-                        $a = ((~((int)($colorat >> 24))) << 1) & 0xff;
-                        $r = ($colorat >> 16) & 0xff;
-                        $g = ($colorat >> 8) & 0xff;
-                        $b = $colorat & 0xff;
-                        $skinbytes .= chr($r) . chr($g) . chr($b) . chr($a);
-                    }
+            $skinName = self::$skins[$data];
+
+            if ($this->isOwned($player, $skinName)) {
+                if(!isset($this->PlayerSkins[$player->getName()])){
+                    $this->PlayerSkins[$player->getName()] = $player->getSkin();
                 }
-                @imagedestroy($img);
-                $player->setSkin(new Skin($player->getSkin()->getSkinId(), $skinbytes, "", "", ""));
+                $player->setSkin(new Skin($player->getSkin()->getSkinId(), $this->pngToSkinBytes($this->getDataFolder() . "skins/$skinName.png"), "", "", ""));
                 $player->sendSkin();
+                $player->sendMessage("§aSkin was set\n§cTo reset your skin use /sh reset");
+                return true;
+            }
+
+            $price = $cfg->get($skinName);
+            if ($this->eco->myMoney($player) >= $price) {
+                $this->eco->reduceMoney($player, $price);
+                $this->setOwned($player, $skinName);
+                $player->sendMessage("§aYou bought $skinName Skin");
             } else {
                 $player->sendMessage(T::DARK_RED . "[  !  ] Your money is not enough");
             }
         });
-        $form->setTitle("§4§l<< &bSkin &eShop §4>>");
-        foreach (self::$skinPaths as $name => $array) {
-            $price = $cfg->get($array[1]);
-            $form->addButton(self::$colors[rand(0, (count(self::$colors) - 1))] . $array[1] . "    $price$");
+        $form->setTitle("§4§l<< §bSkin §eShop §4>>");
+        foreach (self::$skins as $name) {
+            $price = $cfg->get($name);
+            $form->addButton(self::$colors[array_rand(self::$colors)] . "$name    $price$" . $this->ownStatus($player, $name));
         }
         $form->sendToPlayer($player);
         return $form;
     }
+
+    public function isOwned(Player $player, string $skinName) : bool
+    {
+        if (!is_array($this->db->getNested($player->getName()))) {
+            return false;
+        }
+        return in_array($skinName, $this->db->getNested($player->getName()));
+    }
+
+    public function ownStatus(Player $player, string $skinName)
+    {
+        if (!is_array($this->db->getNested($player->getName()))) {
+            return '     §4Not Owned';
+        }
+        return in_array($skinName, $this->db->getNested($player->getName())) ? '     §2Owned' : '     §4Not Owned';
+    }
+
+    public function setOwned(Player $player, string $skinName)
+    {
+        $skins = is_array($this->db->getNested($player->getName())) ? $this->db->getNested($player->getName()) : [];
+        array_push($skins, $skinName);
+        $this->db->setNested($player->getName(), $skins);
+        $this->db->save();
+    }
+
+    public function pngToSkinBytes(string $skinPath)
+    {
+        $img = @imagecreatefrompng($skinPath);
+        $skinbytes = "";
+        $s = (int)@getimagesize($skinPath)[1];
+        for ($y = 0; $y < $s; $y++) {
+            for ($x = 0; $x < 64; $x++) {
+                $colorat = @imagecolorat($img, $x, $y);
+                $a = ((~((int)($colorat >> 24))) << 1) & 0xff;
+                $r = ($colorat >> 16) & 0xff;
+                $g = ($colorat >> 8) & 0xff;
+                $b = $colorat & 0xff;
+                $skinbytes .= chr($r) . chr($g) . chr($b) . chr($a);
+            }
+        }
+        @imagedestroy($img);
+        return $skinbytes;
+    }
 }
-// الهم صله الله محمد و اله محمد
