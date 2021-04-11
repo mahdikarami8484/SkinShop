@@ -1,5 +1,7 @@
 <?php
 
+//بسم الله الرحمن الرحیم
+
 namespace mahdikarami8484\SkinShop;
 
 use mahdikarami8484\SkinShop\Lib\SimpleForm;
@@ -169,3 +171,6 @@ class main extends PluginBase implements Listener
         return $skinbytes;
     }
 }
+
+
+//الله هم صله علی محمد و اله محمد
