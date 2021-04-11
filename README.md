@@ -2,4 +2,4 @@
 < --- skin shop for plugin --- >
 <br>
 cmd : 
-/skinshop
+/sh
