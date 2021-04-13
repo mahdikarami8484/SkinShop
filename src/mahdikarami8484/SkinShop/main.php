@@ -19,7 +19,7 @@ use pocketmine\utils\TextFormat as T;
 class main extends PluginBase implements Listener
 {
     /** @var array */
-    public static $skins[];
+    public static $skins = [];
 
     /** @var TextFormat[] */
     public static $colors = [
