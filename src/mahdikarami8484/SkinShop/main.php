@@ -118,6 +118,9 @@ class main extends PluginBase implements Listener
             }
         });
         $form->setTitle("§4§l<< §bSkin §eShop §4>>");
+if(count(self::skins) == 0){
+$from->addButton ("§4 please set price and skin");
+}else {
         foreach (self::$skins as $name) {
             $price = $cfg->get($name);
             $form->addButton(self::$colors[array_rand(self::$colors)] . "$name    $price$" . $this->ownStatus($player, $name));
@@ -150,6 +153,7 @@ class main extends PluginBase implements Listener
         $this->db->save();
     }
 
+
     public function pngToSkinBytes(string $skinPath)
     {
         $img = @imagecreatefrompng($skinPath);
@@ -168,4 +172,5 @@ class main extends PluginBase implements Listener
         @imagedestroy($img);
         return $skinbytes;
     }
+}
 }
