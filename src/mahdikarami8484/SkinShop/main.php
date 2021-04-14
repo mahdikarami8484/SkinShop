@@ -120,6 +120,8 @@ class main extends PluginBase implements Listener
         $form->setTitle("§4§l<< §bSkin §eShop §4>>");
 if(count(self::skins) == 0){
 $from->addButton ("§4 please set price and skin");
+$form->sendToPlayer($player);
+        return $form;
 }else {
         foreach (self::$skins as $name) {
             $price = $cfg->get($name);
