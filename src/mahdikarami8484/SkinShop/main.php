@@ -93,7 +93,7 @@ class main extends PluginBase implements Listener
         $cfg = $this->getConfig();
         $api = $this->getServer()->getPluginManager()->getPlugin('FormAPI');
         $form = new SimpleForm(function (Player $player, $data) use ($cfg) {
-            if ($data === null) {
+            if ($data === null or count(self::$skins) == 0) {
                 return true;
             }
             $skinName = self::$skins[$data];
